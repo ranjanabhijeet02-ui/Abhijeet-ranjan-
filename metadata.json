@@ -1,0 +1,6 @@
+{
+  "name": "ShaadiBill",
+  "description": "Bilingual Wedding Invoice Generator for photographers in India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=850, initial-scale=0.45, maximum-scale=2.0, user-scalable=yes">
+  <title>ShaadiBill - Bilingual Wedding Invoice Generator</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  
+  <!-- html2pdf.js wrapper -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <!-- Razorpay Checkout -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Google Fonts: Playfair Display for Serif elegance and Noto Sans Devanagari for perfect Hindi rendering -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Noto+Sans+Devanagari:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Noto Sans Devanagari', sans-serif;
+      background: radial-gradient(circle at top, #1a0f21 0%, #050208 100%), #050208;
+    }
+    .serif-title {
+      font-family: 'Cinzel', 'Playfair Display', serif;
+    }
+    
+    /* Elegant Print media overrides so the downloaded PDF fits perfectly in exactly one A4 page with clean margins */
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      #invoice-block {
+        box-shadow: none !important;
+        border: 4px double #701a75 !important;
+        background: white !important;
+        margin: 0 !important;
+        padding: 5mm !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .bill-input {
+        background-color: transparent !important;
+        border-bottom: 1px dotted #701a75 !important;
+        print-color-adjust: exact;
+      }
+    }
+
+    /* Soft premium input text styled with bottom dotted border to resemble a beautiful traditional billing block */
+    .bill-input {
+      border: none;
+      border-bottom: 1px dashed #701a75;
+      background: transparent;
+      outline: none;
+      transition: all 0.2s ease-in-out;
+    }
+    .bill-input:focus {
+      border-bottom: 2px solid #b91c1c;
+      background: rgba(112, 26, 117, 0.03);
+    }
+    .hdr-input {
+      font-weight: 500;
+      color: #701a75;
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-20 text-slate-200 flex flex-col items-center select-none antialiased selection:bg-[#701a75] selection:text-white">
+
+  <!-- ==================== PREMIUM SaaS DASHBOARD (No-Print) ==================== -->
+  <div class="no-print mt-6 mb-8 w-full max-w-[850px] bg-[#1a1a1a]/85 backdrop-blur-md border border-[#701a75]/30 rounded-2xl p-5 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <!-- Ornamental Icon representing ShaadiBill -->
+      <div class="w-12 h-12 bg-gradient-to-tr from-[#701a75] to-[#b91c1c] rounded-xl flex items-center justify-center shadow-lg shadow-fuchsia-950/40">
+        <span class="text-white font-black text-2xl serif-title">S</span>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-lg font-extrabold tracking-wider bg-gradient-to-r from-fuchsia-300 to-rose-400 bg-clip-text text-transparent uppercase font-[Cinzel]">ShaadiBill</h1>
+          <span id="status-badge" class="px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-green-950/40 text-green-400 border border-green-500/30 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+            <span>TEST MODE (FREE TRIAL)</span>
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mt-0.5">Premium Billing Software for Wedding Photographers & Videographers</p>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0 justify-center">
+      <button onclick="triggerRazorpay(4900, 'Monthly Suite Access')" class="flex-1 md:flex-none cursor-pointer px-4 py-2 text-xs font-bold bg-[#1a1a1a] hover:bg-white/10 active:bg-white/20 transition duration-300 active:scale-95 text-white rounded-lg shadow-md border border-white/10 flex items-center justify-center gap-1.5">
+        <span>Activate Monthly (₹49)</span>
+      </button>
+      <button onclick="triggerRazorpay(39900, 'Yearly Suite Access')" class="flex-1 md:flex-none cursor-pointer px-4 py-2 text-xs font-bold bg-gradient-to-r from-[#b91c1c] to-[#701a75] hover:opacity-90 transition duration-300 active:scale-95 text-white rounded-lg shadow-md border border-red-500/30 flex items-center justify-center gap-1.5">
+        <span class="text-amber-350">★</span> <span>Activate Yearly (₹399)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== 850px PRINTABLE INVOICE CONTAINER ==================== -->
+  <div id="invoice-block" class="w-[850px] min-h-[1100px] bg-white text-stone-900 border-[6px] border-[#701a75] p-8 shadow-2xl relative flex flex-col justify-between rounded-lg">
+    <div class="relative z-10">
+      
+      <!-- Ornamental Top Corner Accents -->
+      <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#701a75] opacity-35 no-print"></div>
+      <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#701a75] opacity-35 no-print"></div>
+
+      <!-- ==================== HEADER BOOK LAYOUT (Inline Editable) ==================== -->
+      <div class="flex justify-between items-start border-b-2 border-dashed border-stone-300 pb-5">
+        
+        <!-- Left Side: Proprietor Detail -->
+        <div class="w-[240px] text-xs">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <span class="text-[#701a75] font-bold">प्रो० (Prop):</span>
+            <input type="text" class="bill-input hdr-input w-[150px] font-bold" value="AMIT RAJ">
+          </div>
+          <div class="text-stone-500 mt-2 text-[11px] leading-relaxed">
+            <p class="font-semibold text-stone-700">★ High-Quality cinematic films & gorgeous traditional photo-shoots for your royal weddings.</p>
+          </div>
+        </div>
+
+        <!-- Center Column: Studio Brand Header -->
+        <div class="flex-1 text-center px-4">
+          <span class="text-[10px] tracking-[0.25em] text-[#b91c1c] font-bold uppercase block mb-1">शुभ विवाह / उत्सव बिल शीट</span>
+          <!-- Dynamic Studio Title -->
+          <input type="text" class="serif-title font-black text-center text-4xl text-[#701a75] uppercase w-full bg-transparent border-none outline-none focus:bg-stone-50 rounded" value="MOHAN WEDDING FILMS" style="font-family: 'Cinzel', serif;">
+          <!-- Subtitle -->
+          <input type="text" class="text-center font-bold text-xs tracking-wider text-[#b91c1c] w-full bg-transparent border-none outline-none focus:bg-stone-50 rounded mt-1 uppercase" value="PROFESSIONAL PHOTOGRAPHY & VIDEOGRAPHY">
+          
+          <!-- Address -->
+          <div class="flex items-center justify-center gap-1 mt-2">
+            <svg class="w-3.5 h-3.5 text-[#701a75] h-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path></svg>
+            <input type="text" class="bill-input text-stone-600 text-[11px] font-medium w-full text-center" value="Gayatri Mandir Road, Sudna, Daltonganj (Palamu)">
+          </div>
+        </div>
+
+        <!-- Right Side: Mobile & Social Branding Box -->
+        <div class="w-[240px] flex flex-col items-end text-xs">
+          <div class="flex items-center gap-1.5 justify-end">
+            <svg class="w-4 h-4 text-[#b91c1c]" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg>
+            <input type="text" class="bill-input hdr-input w-[150px] font-bold text-right" value="7667228830, 9835832491">
+          </div>
+
+          <!-- Social Showcase Box with dashed purple theme -->
+          <div class="mt-4 border border-dashed border-[#701a75]/40 rounded-xl p-2.5 bg-stone-50 w-full text-left">
+            <div class="flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-[#b91c1c]"></span>
+              <span class="text-[10px] font-extrabold uppercase tracking-wider text-purple-900">Digital Portfolios</span>
+            </div>
+            <input type="text" class="bill-input text-stone-600 font-mono text-[10.5px] w-full mt-1.5" value="YT/IG: @mohan_wedding_films_">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ==================== CLIENT METADATA ROW (क्र.सं. / नाम / पता) ==================== -->
+      <div class="bg-[#701a75]/5 p-4 rounded-xl border border-[#701a75]/15 mt-5 grid grid-cols-12 gap-y-4 gap-x-6 text-xs">
+        
+        <!-- S.No -->
+        <div class="col-span-4 flex items-center gap-2">
+          <span class="font-bold text-[#701a75] whitespace-nowrap">क्र.सं. (S.No) :</span>
+          <input type="text" class="bill-input w-full font-bold" value="SB-2026-001">
+        </div>
+        
+        <!-- Date -->
+        <div class="col-span-4 flex items-center gap-2 col-start-9">
+          <span class="font-bold text-[#701a75] whitespace-nowrap">दिनांक (Date) :</span>
+          <!-- Dynamic Current date set via JS inside placeholder -->
+          <input type="text" id="client-date-field" class="bill-input w-full font-bold" value="">
+        </div>
+
+        <!-- Client Name -->
+        <div class="col-span-7 flex items-center gap-2">
+          <span class="font-bold text-[#701a75] whitespace-nowrap">ग्राहक का नाम (Name) :</span>
+          <input type="text" class="bill-input w-full font-bold text-stone-850" placeholder="Enter Client Name">
+        </div>
+
+        <!-- Phone Number -->
+        <div class="col-span-5 flex items-center gap-2">
+          <span class="font-bold text-[#701a75] whitespace-nowrap">मोबाइल (Mobile) :</span>
+          <input type="text" id="client-phone" class="bill-input w-full font-bold text-stone-850" placeholder="Customer Contact">
+        </div>
+
+        <!-- Customer Address -->
+        <div class="col-span-12 flex items-center gap-2">
+          <span class="font-bold text-[#701a75] whitespace-nowrap">पता (Address) :</span>
+          <input type="text" class="bill-input w-full" placeholder="Enter Customer Address">
+        </div>
+
+      </div>
+
+      <!-- ==================== BILINGUAL EVENT DETAILS TABLE ==================== -->
+      <div class="mt-6 border border-stone-300 rounded-xl overflow-hidden shadow-sm">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-gradient-to-r from-[#701a75] to-[#86198f] text-white">
+              <th class="py-3 px-4 font-bold border-r border-[#701a75]/20 w-[160px] text-center">दिनांक (Date)</th>
+              <th class="py-3 px-4 font-bold border-r border-[#701a75]/20">कार्यक्रम का विवरण (Function Details)</th>
+              <th class="py-3 px-4 font-bold w-[180px] text-right">राशि (Amount) (₹)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-stone-200">
+            <!-- Row 1 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">सगाई <span class="text-stone-500 font-normal italic">(Engagement)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Add shooter/details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 2 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">तिलक <span class="text-stone-500 font-normal italic">(Tilak)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Add shooter/details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 3 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">मेहंदी / संगीत <span class="text-stone-500 font-normal italic">(Mehandi / Sangeet)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Add shooter/details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 4 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">मटकूर / हल्दी <span class="text-stone-500 font-normal italic">(Matkor / Haldi)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Add shooter/details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 5 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs text-[#701a75]">विवाह <span class="text-[#b91c1c] font-normal italic">(Wedding)</span></span>
+                  <input type="text" class="text-[10px] text-[#701a75]/60 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="E.g. Canon R6II, Drone...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end bg-purple-50/20">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 text-[#701a75]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 6 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">रिसेप्शन <span class="text-stone-500 font-normal italic">(Reception)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Add shooter/details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 7 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">जन्म दिन <span class="text-stone-500 font-normal italic">(Birthday Party)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 8 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick/Write Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-stone-800 text-xs">गृहप्रवेश <span class="text-stone-500 font-normal italic">(House Warming)</span></span>
+                  <input type="text" class="text-[10px] text-stone-400 italic bg-transparent mt-0.5 border-none outline-none focus:bg-stone-50" placeholder="Details...">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 9 -->
+            <tr class="hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Details/Qty">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex flex-col">
+                  <span class="font-bold text-indigo-950 text-xs">फोटो की मात्रा / एल्बम का पेज <span class="text-stone-500 font-normal italic">(Album Details)</span></span>
+                  <input type="text" class="text-[10px] text-[#701a75] italic bg-transparent mt-1 border-none outline-none focus:bg-stone-50 font-medium" value="30 Pages gloss premium sheet, leather box bundle">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+            <!-- Row 10: Customizable other service column with description field inside -->
+            <tr class="bg-amber-50/15 hover:bg-stone-50/50">
+              <td class="p-2 border-r border-stone-200 text-center">
+                <input type="text" class="bill-input text-center w-full" placeholder="Pick Date">
+              </td>
+              <td class="p-2 border-r border-stone-200 font-medium">
+                <div class="flex items-center gap-1.5 w-full">
+                  <span class="font-bold text-stone-850 text-xs whitespace-nowrap">अन्य (Other) :</span>
+                  <input type="text" class="bill-input text-xs w-full font-semibold text-[#b91c1c]" placeholder="Define custom event or additional camera cranes/LED screen etc.">
+                </div>
+              </td>
+              <td class="p-2 text-right relative flex items-center justify-end">
+                <span class="text-stone-400 absolute left-3">₹</span>
+                <input type="number" oninput="calculateBilling()" class="amt-input font-bold text-right w-full bg-transparent outline-none pr-2 focus:text-[#b91c1c]" placeholder="0">
+              </td>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ==================== DYNAMIC CALCULATION & BILL TOTALS ==================== -->
+      <div class="flex flex-col md:flex-row justify-end items-end mt-6">
+        <div class="w-[320px] bg-stone-50 border-2 border-[#701a75]/40 rounded-xl p-4 flex flex-col gap-3 font-semibold text-xs tracking-wide">
+          
+          <!-- Total Amount -->
+          <div class="flex justify-between items-center pb-2 border-b border-stone-200">
+            <span class="text-[#701a75] font-extrabold uppercase">कुल राशि (Total Amount):</span>
+            <span class="text-stone-900 font-extrabold text-sm flex items-center gap-0.5">
+              <span>₹</span>
+              <span id="tot-val">0</span>
+            </span>
+          </div>
+
+          <!-- Advance Paid Input -->
+          <div class="flex justify-between items-center pb-1">
+            <span class="text-[#b91c1c] font-bold">अग्रिम राशि (Advance Paid):</span>
+            <div class="relative w-[110px] text-right flex items-center justify-end">
+              <span class="text-[#b91c1c] absolute left-1">₹</span>
+              <input type="number" id="adv-val" oninput="calculateBilling()" class="bill-input font-extrabold text-right w-full text-[#b91c1c]" value="0">
+            </div>
+          </div>
+
+          <!-- Balance Due Output -->
+          <div class="flex justify-between items-center pt-2.5 border-t-2 border-dashed border-[#701a75]/35">
+            <span class="text-stone-900 font-black text-xs uppercase tracking-wider">शेष राशि (Balance Due):</span>
+            <span class="text-[#701a75] font-black text-base flex items-center gap-0.5">
+              <span>₹</span>
+              <span id="bal-val">0</span>
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ==================== TERMS & CONDITIONS SECTION ==================== -->
+      <div class="mt-8 border-t border-stone-200 pt-4">
+        <h4 class="text-[10px] font-bold text-[#701a75] uppercase tracking-widest mb-1.5">नियम एवं शर्तें (Terms & Conditions)</h4>
+        <ul class="text-[9.5px] text-stone-600 leading-relaxed font-medium space-y-1">
+          <li class="flex items-start gap-1">
+            <span class="text-[#b91c1c]">•</span> 
+            <span>03 तीन माह के अन्दर विडियो एवं अल्बम नही ले जाने पर कैमरा व्यवस्थापक की कोई जिम्मेदारी नहीं होगी।</span>
+          </li>
+          <li class="flex items-start gap-1">
+            <span class="text-[#b91c1c]">•</span> 
+            <span>कार्य करने समय किसी कारण वश कैमरा या मेमोरी कार्ड में कोई तकनिकी समस्या अगर आये तो कैमरा व्यवस्थापक एवं कैमरा बुकिंग देने वाले को मिलकर आपस में बैठकर समझौता करके समस्या का निदान निकालना होगा।</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- ==================== UPI DYNAMIC PAYMENT QR SECTION ==================== -->
+      <div class="mt-6 border-t border-stone-200 pt-5 flex items-center justify-between bg-stone-50/70 p-4 rounded-xl border border-stone-200/50">
+        <div class="flex-1 pr-6">
+          <div class="flex items-center gap-1.5 mb-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-[#701a75]"></span>
+            <h4 class="text-xs font-black text-[#701a75] uppercase tracking-wider">डिजिटल भुगतान (UPI Payment)</h4>
+          </div>
+          <p class="text-[10px] text-stone-500 leading-normal mb-3">
+            शेष राशि का भुगतान करने के लिए इस QR कोड को किसी भी UPI ऐप (BHIM, PhonePe, Google Pay, Paytm) से स्कैन करें।
+          </p>
+          <div class="flex items-center gap-2 text-xs">
+            <span class="font-bold text-stone-700 whitespace-nowrap">यूपीआई आईडी (Payee UPI ID):</span>
+            <input type="text" id="upi-id" oninput="calculateBilling()" class="bill-input font-bold text-[#b91c1c] w-[180px]" value="7667228830@ybl" placeholder="E.g. shopname@upi">
+          </div>
+        </div>
+        
+        <div class="flex flex-col items-center justify-center p-2 bg-white border border-stone-250 rounded-xl shadow-sm shrink-0">
+          <div class="relative w-[100px] h-[100px] flex items-center justify-center bg-stone-50 overflow-hidden rounded-lg">
+            <img id="upi-qr-img" class="w-full h-full object-contain" src="https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=upi%3A%2F%2Fpay%3Fpa%3D7667228830%40ybl%26pn%3DMOHAN%2520WEDDING%2520FILMS%26am%3D0%26cu%3DINR%26tn%3DWedding%2520Shoot" alt="UPI QR Code">
+          </div>
+          <span class="text-[8px] font-black tracking-widest text-[#701a75] uppercase mt-1">BHIM UPI QR</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== SIGNATURE & ACTIONS FOOTER ==================== -->
+    <div class="mt-14 flex justify-between items-end border-t border-dashed border-stone-250 pt-8 text-xs text-stone-750 font-bold">
+      <div class="text-center w-[180px]">
+        <div class="h-10"></div> <!-- Placeholder white-space for handwritten/manual signature -->
+        <span class="border-t border-stone-300 pt-1 px-4 block">हस्ताक्षर ग्राहक (Client Signature)</span>
+      </div>
+      
+      <div class="text-center w-[180px]">
+        <div class="h-10 flex items-center justify-center font-bold italic text-purple-900 select-none opacity-40">M.W.F. Studio</div>
+        <span class="border-t border-stone-300 pt-1 px-4 block">हस्ताक्षर प्रोपराइटर (Proprietor Signature)</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ==================== ACTION BOARD PANEL (No-Print) ==================== -->
+  <div class="no-print mt-8 w-full max-w-[850px] bg-[#1a1a1a]/85 border border-[#701a75]/30 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
+    <div class="flex flex-col text-slate-300 text-xs text-center md:text-left">
+      <span class="font-extrabold text-[#701a75] uppercase tracking-wide font-sans">Generate & Digital Dispatch</span>
+      <p class="text-slate-400 mt-1">Select A4 print mode to save offline, then share or send directly to client</p>
+    </div>
+    
+    <div class="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+      <button onclick="downloadPDF()" class="cursor-pointer flex-1 md:flex-none px-6 py-3.5 bg-green-600 hover:bg-green-700 active:scale-95 transition text-white font-extrabold text-sm rounded-xl shadow-lg border border-green-500/30 flex items-center justify-center gap-2">
+        <!-- SVG Download Icon -->
+        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        <span>Download & Share PDF</span>
+      </button>
+
+      <button onclick="shareWhatsApp()" class="cursor-pointer flex-1 md:flex-none px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 active:scale-95 transition text-white font-extrabold text-sm rounded-xl shadow-lg border border-emerald-500/30 flex items-center justify-center gap-2">
+        <!-- WhastsApp Styled Icon representation -->
+        <svg class="w-4.5 h-4.5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.717-1.458L0 24zm6.59-4.846c1.6.95 3.1 1.45 4.805 1.45 5.518 0 10.005-4.486 10.008-10.004.002-2.673-1.04-5.187-2.936-7.085-1.897-1.897-4.413-2.937-7.085-2.939-5.524 0-10.012 4.488-10.015 10.006-.001 1.83.486 3.62 1.411 5.2l-.995 3.63 3.73-.977zm11.387-4.72c-.3-.149-1.772-.875-2.046-.975-.276-.1-.476-.15-.676.15-.2.3-.775.975-.95 1.174-.175.2-.35.224-.65.075-.3-.15-1.265-.467-2.41-1.485-.89-.795-1.49-1.777-1.665-2.076-.175-.3-.018-.462.13-.61.135-.133.3-.35.45-.524.15-.175.2-.3.3-.5.1-.2.05-.375-.025-.524-.075-.15-.676-1.625-.925-2.225-.244-.589-.49-.51-.676-.52-.175-.01-.375-.01-.575-.01-.2 0-.525.075-.8.375-.275.3-1.05 1.025-1.05 2.5 0 1.475 1.075 2.9 1.225 3.1.15.2 2.11 3.22 5.11 4.524.714.31 1.27.496 1.705.635.717.228 1.37.196 1.885.12.574-.086 1.772-.724 2.022-1.425.25-.7.25-1.3 1.175-1.425z"/></svg>
+        <span>Send WhatsApp Update</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ==================== LOG & RECOVERY BACKUP STAGE ==================== -->
+  <div class="no-print mt-4 max-w-[850px] text-[10px] text-stone-500 font-medium">
+    Note: Fill in event item amounts above; the total will automatically compute. Pinch-zoom to adjust fields in narrow viewports.
+  </div>
+
+  <!-- ==================== CORE FUNCTIONAL SCRIPTING ==================== -->
+  <script>
+    // Initialize date field automatically with today's date
+    document.addEventListener("DOMContentLoaded", function() {
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      document.getElementById('client-date-field').value = `${dd}/${mm}/${yyyy}`;
+
+      // Retrieve state cache if already premium
+      if (localStorage.getItem('shaadibill_premium') === 'active') {
+        const badge = document.getElementById('status-badge');
+        if (badge) {
+          badge.innerText = 'PREMIUM ACTIVE';
+          badge.className = 'px-3 py-1 bg-green-900/40 text-green-400 border border-green-500 rounded-full font-bold text-xs uppercase tracking-wider';
+        }
+      }
+
+      // Initial calculation round to output default UPI QR
+      calculateBilling();
+    });
+
+    /**
+     * DYNAMIC CALCULATION: Recovers, parses, and sums all item billing amounts
+     */
+    function calculateBilling() {
+      let totalAmount = 0;
+      const amtInputs = document.querySelectorAll('.amt-input');
+      
+      amtInputs.forEach(input => {
+        const parsedVal = parseFloat(input.value);
+        if (!isNaN(parsedVal) && parsedVal > 0) {
+          totalAmount += parsedVal;
+        }
+      });
+
+      // Update Total Amount Label
+      document.getElementById('tot-val').innerText = totalAmount.toLocaleString('en-IN');
+
+      // Recover advance paid value parsed securely
+      let advanceValue = parseFloat(document.getElementById('adv-val').value);
+      if (isNaN(advanceValue) || advanceValue < 0) {
+        advanceValue = 0;
+      }
+
+      // Calculate balance and update securely
+      const balanceValue = totalAmount - advanceValue;
+      document.getElementById('bal-val').innerText = balanceValue.toLocaleString('en-IN');
+
+      // Dynamic UPI QR code generation based on static UPI ID input
+      const upiId = document.getElementById('upi-id') ? document.getElementById('upi-id').value.trim() : '7667228830@ybl';
+      const studioNameElement = document.querySelector('.serif-title');
+      const studioName = studioNameElement ? studioNameElement.value.trim() : 'MOHAN WEDDING FILMS';
+      
+      // Enforce positive value for payment instructions
+      const paymentAmount = balanceValue > 0 ? balanceValue : 0;
+      
+      // Construct a standardized UPI payment URI
+      const upiUri = "upi://pay?pa=" + encodeURIComponent(upiId) + 
+                     "&pn=" + encodeURIComponent(studioName) + 
+                     "&am=" + paymentAmount + 
+                     "&cu=INR&tn=Wedding%20Filming%20Services";
+      
+      const qrImg = document.getElementById('upi-qr-img');
+      if (qrImg) {
+        // Generates an elegant high-quality 150x150 QR code via the stable QR Server API
+        qrImg.src = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + encodeURIComponent(upiUri);
+      }
+    }
+
+    /**
+     * RAZORPAY SUBSCRIPTION INTEGRATION (TEST MODE)
+     * Supports Monthly and Yearly triggers using active test key
+     */
+    function triggerRazorpay(amountInPaise, descriptionPlan) {
+      const options = {
+        key: 'rzp_test_T0JyLMEoRhhWUm',
+        amount: amountInPaise,
+        currency: 'INR',
+        name: 'ShaadiBill Suite (M.W.F.)',
+        description: descriptionPlan,
+        image: 'https://cdn-icons-png.flaticon.com/512/3596/3596101.png',
+        handler: function (response) {
+          alert("Activation Successful! Thank you for subscribing. Premium ID: " + response.razorpay_payment_id);
+          
+          // Elevate UI to Premium Success
+          const badge = document.getElementById('status-badge');
+          if (badge) {
+            badge.innerText = 'PREMIUM ACTIVE';
+            badge.className = 'px-3 py-1 bg-green-900/40 text-green-400 border border-green-500 rounded-full font-bold text-xs uppercase tracking-wider';
+          }
+          localStorage.setItem('shaadibill_premium', 'active');
+        },
+        prefill: {
+          name: 'Wedding Photographer',
+          email: 'support@shaadibill.com',
+          contact: '7667228830'
+        },
+        theme: {
+          color: '#701a75'
+        }
+      };
+
+      try {
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        console.error("Razorpay UI Launch Failure: ", err);
+        alert("Razorpay payment gateway initialized in sandbox. Details: " + err.message);
+      }
+    }
+
+    /**
+     * DOWNLOAD PDF: Implemented via html2pdf using clean container ratios
+     */
+    function downloadPDF() {
+      // Focus element for printing
+      const cardBlock = document.getElementById('invoice-block');
+      
+      const config = {
+        margin: [8, 8, 8, 8],
+        filename: 'ShaadiBill_Invoice_' + Date.now() + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2.2, 
+          useCORS: true, 
+          letterRendering: true,
+          scrollX: 0,
+          scrollY: 0
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // Play soft sound or feedback
+      console.log("Generating high-quality PDF, please wait...");
+      
+      html2pdf().set(config).from(cardBlock).save()
+        .then(() => {
+          console.log("PDF delivery packaging complete.");
+        })
+        .catch(err => {
+          alert("Export Error: " + err.message);
+        });
+    }
+
+    /**
+     * SHARE ON WHATSAPP:
+     * Easily initiates dynamic notification layout
+     */
+    function shareWhatsApp() {
+      const clientPhoneVal = document.getElementById('client-phone').value.trim();
+      const clientName = document.querySelector('[placeholder="Enter Client Name"]').value.trim() || 'Client';
+      const totValText = document.getElementById('tot-val').innerText;
+      const balValText = document.getElementById('bal-val').innerText;
+      
+      if (!clientPhoneVal) {
+        alert("Please enter client phone number in the metadata row first to trigger WhatsApp dispatch!");
+        return;
+      }
+
+      // Filter non-numeric characters from contact string
+      const sanitizedPhone = clientPhoneVal.replace(/[^0-9]/g, '');
+      const defaultCodePhone = sanitizedPhone.length === 10 ? '91' + sanitizedPhone : sanitizedPhone;
+
+      // Construct high-value traditional photography notification text
+      const msgText = `*Namaste ${clientName}*, 🙏\r\r*MOHAN WEDDING FILMS* has generated your professional bill invoice summary.\r\r💰 *Total Package Amount*: ₹${totValText}\r💳 *Pending Balance Due*: ₹${balValText}\r\rYour PDF copy is ready for download in our portal. Let us know if you have any questions.\r\r_Thank you so much for booking your big day with us!_`;
+      
+      const waUrl = "https://api.whatsapp.com/send?phone=" + defaultCodePhone + "&text=" + encodeURIComponent(msgText);
+      window.open(waUrl, '_blank');
+    }
+  </script>
+</body>
+</html>

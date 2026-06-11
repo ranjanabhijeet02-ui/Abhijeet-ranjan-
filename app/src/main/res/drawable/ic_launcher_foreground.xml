@@ -1,0 +1,26 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Camera Body Frame centered inside the 66dp safe zone (21dp to 87dp bounds) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,38 c0,-2.2 1.8,-4 4,-4 h40 c2.2,0 4,1.8 4,4 v32 c0,2.2 -1.8,4 -4,4 h-40 c-2.2,0 -4,-1.8 -4,-4 z" />
+    <!-- Camera Top Prism Base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,34 l4,-7 h16 l4,7 z" />
+    <!-- Camera Outer Lens ring -->
+    <path
+        android:fillColor="#701a75"
+        android:pathData="M54,54 m-15,0 a15,15 0 1,1 30,0 a15,15 0 1,1 -30,0" />
+    <!-- Camera Inner Lens reflection -->
+    <path
+        android:fillColor="#b91c1c"
+        android:pathData="M54,54 m-8,0 a8,8 0 1,1 16,0 a8,8 0 1,1 -16,0" />
+    <!-- Camera Hot Shoe flash dot or decoration -->
+    <path
+        android:fillColor="#b91c1c"
+        android:pathData="M37,42 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0" />
+</vector>
